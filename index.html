@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="一个可部署到 GitHub Pages 的净值收益看板，支持每日数据增删改查和日、月、年视图。"
+    />
+    <title>净值收益看板</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Net Worth Tracker</p>
+          <h1>净值收益看板</h1>
+        </div>
+        <div class="header-actions">
+          <button type="button" class="ghost-button" id="refreshData">刷新数据</button>
+          <button type="button" class="primary-button" id="adminToggle">管理模式</button>
+        </div>
+      </header>
+
+      <section class="summary-grid" aria-label="净值概览">
+        <article class="metric-panel">
+          <span class="metric-label">当前总净值</span>
+          <strong class="metric-value" id="latestTotal">--</strong>
+          <span class="metric-subline" id="latestDate">暂无数据</span>
+        </article>
+        <article class="metric-panel">
+          <span class="metric-label">较前一日变化</span>
+          <strong class="metric-value" id="latestDelta">--</strong>
+          <span class="metric-subline" id="latestDeltaNote">需要连续两日数据</span>
+        </article>
+        <article class="chart-panel">
+          <div class="panel-heading">
+            <h2>最近趋势</h2>
+            <span id="chartCaption">最近 30 条记录</span>
+          </div>
+          <canvas id="trendChart" width="900" height="260" aria-label="总净值趋势图"></canvas>
+        </article>
+      </section>
+
+      <section class="admin-panel is-hidden" id="adminPanel" aria-label="GitHub 同步设置">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">GitHub Sync</p>
+            <h2>管理模式</h2>
+          </div>
+          <span class="status-pill" id="syncStatus">未连接</span>
+        </div>
+
+        <form class="admin-grid" id="githubForm" autocomplete="off">
+          <label>
+            GitHub Owner
+            <input id="githubOwner" type="text" autocomplete="username" placeholder="例如 octocat" />
+          </label>
+          <label>
+            Repository
+            <input id="githubRepo" type="text" placeholder="例如 net-worth-pages" />
+          </label>
+          <label>
+            Branch
+            <input id="githubBranch" type="text" placeholder="main" />
+          </label>
+          <label>
+            数据路径
+            <input id="githubPath" type="text" placeholder="data/records.json" />
+          </label>
+          <label class="token-field">
+            Fine-grained Token
+            <input id="githubToken" type="password" autocomplete="off" placeholder="只在当前页面会话中使用" />
+          </label>
+        </form>
+
+        <div class="admin-actions">
+          <button type="button" class="ghost-button" id="loadGithub">从 GitHub 读取</button>
+          <button type="button" class="primary-button" id="commitGithub">提交到 GitHub</button>
+          <button type="button" class="ghost-button" id="clearToken">清除 Token</button>
+        </div>
+        <p class="help-text">
+          Token 不会写入仓库，也不会保存到本地存储。页面刷新后需要重新输入。
+        </p>
+      </section>
+
+      <main class="workspace-grid">
+        <section class="surface view-surface" aria-label="净值视图">
+          <div class="toolbar">
+            <div class="segmented-control" role="tablist" aria-label="视图切换">
+              <button type="button" class="is-active" data-view="day" role="tab">日视图</button>
+              <button type="button" data-view="month" role="tab">月视图</button>
+              <button type="button" data-view="year" role="tab">年视图</button>
+            </div>
+
+            <div class="date-controls">
+              <label id="dayControl">
+                日期
+                <input type="date" id="selectedDate" />
+              </label>
+              <label id="monthControl" class="is-hidden">
+                月份
+                <input type="month" id="selectedMonth" />
+              </label>
+              <label id="yearControl" class="is-hidden">
+                年份
+                <input type="number" id="selectedYear" min="2000" max="2100" />
+              </label>
+            </div>
+          </div>
+
+          <div class="view-panel" id="dayView">
+            <div class="day-layout">
+              <article class="detail-block">
+                <span class="metric-label">当日总净值</span>
+                <strong class="metric-value" id="dayTotal">--</strong>
+                <span class="metric-subline" id="dayDelta">较前一日：--</span>
+              </article>
+              <div class="breakdown-grid" id="dayBreakdown"></div>
+            </div>
+          </div>
+
+          <div class="view-panel is-hidden" id="monthView">
+            <div class="month-summary" id="monthSummary"></div>
+            <div class="calendar-weekdays" aria-hidden="true">
+              <span>日</span>
+              <span>一</span>
+              <span>二</span>
+              <span>三</span>
+              <span>四</span>
+              <span>五</span>
+              <span>六</span>
+            </div>
+            <div class="calendar-grid" id="monthCalendar"></div>
+            <div class="day-inspector" id="dayInspector"></div>
+          </div>
+
+          <div class="view-panel is-hidden" id="yearView">
+            <div class="year-grid" id="yearGrid"></div>
+          </div>
+        </section>
+
+        <aside class="surface editor-surface" aria-label="每日数据编辑">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Daily Record</p>
+              <h2>每日数据</h2>
+            </div>
+            <span class="status-pill" id="editStatus">只读</span>
+          </div>
+
+          <form id="recordForm">
+            <label>
+              日期
+              <input type="date" id="recordDate" required />
+            </label>
+            <label>
+              建设银行净值
+              <input type="number" id="ccbValue" inputmode="decimal" step="0.01" min="0" />
+            </label>
+            <label>
+              工商银行净值
+              <input type="number" id="icbcValue" inputmode="decimal" step="0.01" min="0" />
+            </label>
+            <label>
+              中国银行净值
+              <input type="number" id="bocValue" inputmode="decimal" step="0.01" min="0" />
+            </label>
+            <label>
+              交通银行净值
+              <input type="number" id="bocomValue" inputmode="decimal" step="0.01" min="0" />
+            </label>
+            <label>
+              基金净值
+              <input type="number" id="fundValue" inputmode="decimal" step="0.01" min="0" />
+            </label>
+
+            <div class="total-preview">
+              <span>总净值自动计算</span>
+              <strong id="formTotal">--</strong>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="primary-button" id="saveRecord">保存记录</button>
+              <button type="button" class="ghost-button" id="resetForm">清空</button>
+              <button type="button" class="danger-button" id="deleteCurrent">删除该日</button>
+            </div>
+          </form>
+        </aside>
+      </main>
+
+      <section class="surface table-surface" aria-label="每日数据表">
+        <div class="table-head">
+          <div>
+            <p class="eyebrow">Records</p>
+            <h2>数据查询</h2>
+          </div>
+          <div class="filters">
+            <label>
+              开始
+              <input type="date" id="filterStart" />
+            </label>
+            <label>
+              结束
+              <input type="date" id="filterEnd" />
+            </label>
+            <button type="button" class="ghost-button" id="clearFilters">重置筛选</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>建设银行</th>
+                <th>工商银行</th>
+                <th>中国银行</th>
+                <th>交通银行</th>
+                <th>基金</th>
+                <th>总净值</th>
+                <th>较前一日</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="recordsTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
