@@ -1,5 +1,15 @@
 {
   "schemaVersion": 1,
-  "updatedAt": null,
-  "records": []
+  "updatedAt": "2026-08-12T02:19:16.193Z",
+  "records": [
+    {
+      "date": "2026-08-12",
+      "ccb": 420806.04,
+      "icbc": 400263.77,
+      "boc": 300277.51,
+      "bocom": 369161.4,
+      "fund": 3476.98,
+      "total": 1493985.7000000002
+    }
+  ]
 }
