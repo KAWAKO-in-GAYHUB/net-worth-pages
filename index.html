@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="一个可部署到 GitHub Pages 的净值收益看板，支持每日数据增删改查和日、月、年视图。"
+      content="一个可部署到 GitHub Pages 的净值收益看板，支持每日数据增删改查和当日、日、月、年收益视图。"
     />
     <title>净值收益看板</title>
     <link rel="icon" href="data:," />
@@ -90,9 +90,10 @@
         <section class="surface view-surface" aria-label="净值视图">
           <div class="toolbar">
             <div class="segmented-control" role="tablist" aria-label="视图切换">
-              <button type="button" class="is-active" data-view="day" role="tab">日视图</button>
-              <button type="button" data-view="month" role="tab">月视图</button>
-              <button type="button" data-view="year" role="tab">年视图</button>
+              <button type="button" class="is-active" data-view="day" role="tab">当日收益</button>
+              <button type="button" data-view="month" role="tab">日视图</button>
+              <button type="button" data-view="year" role="tab">月视图</button>
+              <button type="button" data-view="annual" role="tab">年视图</button>
             </div>
 
             <div class="date-controls">
@@ -139,6 +140,10 @@
 
           <div class="view-panel is-hidden" id="yearView">
             <div class="year-grid" id="yearGrid"></div>
+          </div>
+
+          <div class="view-panel is-hidden" id="annualView">
+            <div class="annual-grid" id="annualGrid"></div>
           </div>
         </section>
 

@@ -72,6 +72,7 @@ function cacheElements() {
     "dayView",
     "monthView",
     "yearView",
+    "annualView",
     "dayTotal",
     "dayDelta",
     "dayBreakdown",
@@ -79,6 +80,7 @@ function cacheElements() {
     "monthCalendar",
     "dayInspector",
     "yearGrid",
+    "annualGrid",
     "recordForm",
     "recordDate",
     "ccbValue",
@@ -171,6 +173,14 @@ function bindEvents() {
     state.selectedMonth = button.dataset.month;
     state.selectedYear = Number(state.selectedMonth.slice(0, 4));
     state.view = "month";
+    render();
+  });
+
+  els.annualGrid.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-year]");
+    if (!button) return;
+    state.selectedYear = Number(button.dataset.year);
+    state.view = "year";
     render();
   });
 
@@ -580,6 +590,7 @@ function syncControlsFromState() {
   els.dayView.classList.toggle("is-hidden", state.view !== "day");
   els.monthView.classList.toggle("is-hidden", state.view !== "month");
   els.yearView.classList.toggle("is-hidden", state.view !== "year");
+  els.annualView.classList.toggle("is-hidden", state.view !== "annual");
   els.dayControl.classList.toggle("is-hidden", state.view !== "day");
   els.monthControl.classList.toggle("is-hidden", state.view !== "month");
   els.yearControl.classList.toggle("is-hidden", state.view !== "year");
@@ -627,6 +638,7 @@ function renderViews() {
   renderDayView();
   renderMonthView();
   renderYearView();
+  renderAnnualView();
 }
 
 function renderDayView() {
@@ -682,7 +694,7 @@ function renderMonthView() {
     const delta = getDailyDelta(date);
     const selected = state.selectedDate === date;
     cells.push(`
-      <button type="button" class="calendar-day ${record ? "has-record" : ""} ${selected ? "is-selected" : ""}" data-date="${date}">
+      <button type="button" class="calendar-day ${record ? "has-record" : ""} ${toneClass(delta)} ${selected ? "is-selected" : ""}" data-date="${date}">
         <span class="day-number">${day}</span>
         ${
           record
@@ -736,7 +748,7 @@ function renderYearView() {
     const last = records.at(-1) || null;
     const delta = getMonthlyDelta(month);
     return `
-      <button type="button" class="month-card ${last ? "has-data" : ""}" data-month="${month}">
+      <button type="button" class="month-card ${last ? "has-data" : ""} ${toneClass(delta)}" data-month="${month}">
         <div class="month-card-title">
           <span>${MONTH_LABELS[index]}</span>
           <span>${records.length} 条</span>
@@ -747,6 +759,36 @@ function renderYearView() {
       </button>
     `;
   }).join("");
+}
+
+function renderAnnualView() {
+  const years = getAvailableYears();
+  if (!years.length) {
+    els.annualGrid.innerHTML = `<div class="empty-state">暂无年度收益数据。</div>`;
+    return;
+  }
+
+  els.annualGrid.innerHTML = years
+    .map((year) => {
+      const records = getRecordsForYear(year);
+      const first = records[0] || null;
+      const last = records.at(-1) || null;
+      const baseline = getAnnualBaseline(year);
+      const delta = getAnnualDelta(year);
+      return `
+        <button type="button" class="annual-card ${last ? "has-data" : ""} ${toneClass(delta)}" data-year="${year}">
+          <div class="annual-card-title">
+            <span>${year}年</span>
+            <span>${records.length} 条</span>
+          </div>
+          <span>全年总收益</span>
+          <strong class="${deltaClass(delta)}">${formatDelta(delta)}</strong>
+          <span style="margin-top: 10px;">年末总净值：${last ? formatMoney(last.total) : "--"}</span>
+          <span>基准日期：${baseline ? baseline.date : first ? first.date : "--"}</span>
+        </button>
+      `;
+    })
+    .join("");
 }
 
 function renderTable() {
@@ -902,6 +944,27 @@ function getMonthlyDelta(month) {
   return current.total - previous.total;
 }
 
+function getRecordsForYear(year) {
+  return state.records.filter((record) => record.date.startsWith(`${year}-`));
+}
+
+function getAvailableYears() {
+  return [...new Set(state.records.map((record) => Number(record.date.slice(0, 4))))].sort((a, b) => b - a);
+}
+
+function getAnnualDelta(year) {
+  const current = getRecordsForYear(year).at(-1) || null;
+  const baseline = getAnnualBaseline(year);
+  if (!current || !baseline) return null;
+  return current.total - baseline.total;
+}
+
+function getAnnualBaseline(year) {
+  const firstDay = `${year}-01-01`;
+  const previous = state.records.filter((record) => record.date < firstDay).at(-1) || null;
+  return previous || getRecordsForYear(year)[0] || null;
+}
+
 function calculateTotal(record) {
   return FIELD_DEFS.reduce((sum, field) => sum + toNumber(record[field.key]), 0);
 }
@@ -938,6 +1001,11 @@ function formatDelta(value) {
 function deltaClass(value) {
   if (value === null || Number.isNaN(value) || value === 0) return "is-neutral";
   return value > 0 ? "is-positive" : "is-negative";
+}
+
+function toneClass(value) {
+  if (value === null || Number.isNaN(value) || value === 0) return "";
+  return value > 0 ? "tone-positive" : "tone-negative";
 }
 
 function toDateValue(date) {

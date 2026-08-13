@@ -11,8 +11,10 @@
   --amber: #a76313;
   --red: #c0362c;
   --red-soft: #fff0ee;
+  --red-line: #efc4bf;
   --green: #127a48;
   --green-soft: #eaf7ef;
+  --green-line: #aad8bc;
   --blue-soft: #edf4ff;
   --shadow: 0 18px 60px rgba(35, 48, 54, 0.11);
 }
@@ -216,6 +218,16 @@ h2 {
   color: var(--muted);
 }
 
+.tone-positive {
+  border-color: var(--red-line) !important;
+  background: var(--red-soft) !important;
+}
+
+.tone-negative {
+  border-color: var(--green-line) !important;
+  background: var(--green-soft) !important;
+}
+
 #trendChart {
   display: block;
   width: 100%;
@@ -315,7 +327,7 @@ input:focus {
 
 .segmented-control {
   display: inline-grid;
-  grid-template-columns: repeat(3, minmax(76px, 1fr));
+  grid-template-columns: repeat(4, minmax(76px, 1fr));
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
@@ -359,7 +371,8 @@ input:focus {
 .breakdown-item,
 .month-summary,
 .day-inspector,
-.month-card {
+.month-card,
+.annual-card {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -372,6 +385,7 @@ input:focus {
 
 .breakdown-item span,
 .month-card span,
+.annual-card span,
 .day-inspector span {
   display: block;
   color: var(--muted);
@@ -380,6 +394,7 @@ input:focus {
 
 .breakdown-item strong,
 .month-card strong,
+.annual-card strong,
 .day-inspector strong {
   display: block;
   margin-top: 7px;
@@ -464,17 +479,26 @@ input:focus {
   gap: 12px;
 }
 
-.month-card {
+.annual-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.month-card,
+.annual-card {
   min-height: 138px;
   padding: 14px;
   text-align: left;
 }
 
-.month-card.has-data {
+.month-card.has-data,
+.annual-card.has-data {
   border-color: #b8c9c3;
 }
 
-.month-card-title {
+.month-card-title,
+.annual-card-title {
   display: flex;
   justify-content: space-between;
   gap: 8px;
@@ -588,6 +612,10 @@ tr:last-child td {
   background: #fbfdfc;
 }
 
+.annual-grid .empty-state {
+  grid-column: 1 / -1;
+}
+
 .toast {
   position: fixed;
   right: 18px;
@@ -627,7 +655,8 @@ tr:last-child td {
     grid-template-columns: repeat(2, minmax(160px, 1fr));
   }
 
-  .year-grid {
+  .year-grid,
+  .annual-grid {
     grid-template-columns: repeat(3, minmax(160px, 1fr));
   }
 }
@@ -662,7 +691,8 @@ tr:last-child td {
   .admin-grid,
   .day-layout,
   .breakdown-grid,
-  .year-grid {
+  .year-grid,
+  .annual-grid {
     grid-template-columns: 1fr;
   }
 
