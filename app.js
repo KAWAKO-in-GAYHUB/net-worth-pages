@@ -882,21 +882,25 @@ function renderTrendChart() {
     return { x, y, record };
   });
 
-  ctx.strokeStyle = "#176b63";
   ctx.lineWidth = 3;
-  ctx.beginPath();
-  points.forEach((point, index) => {
-    if (index === 0) ctx.moveTo(point.x, point.y);
-    else ctx.lineTo(point.x, point.y);
+  points.slice(1).forEach((point, index) => {
+    const previous = points[index];
+    const delta = point.record.total - previous.record.total;
+    ctx.strokeStyle = chartDeltaColor(delta);
+    ctx.beginPath();
+    ctx.moveTo(previous.x, previous.y);
+    ctx.lineTo(point.x, point.y);
+    ctx.stroke();
   });
-  ctx.stroke();
 
-  points.forEach((point) => {
+  points.forEach((point, index) => {
+    const previous = points[index - 1] || null;
+    const delta = previous ? point.record.total - previous.record.total : 0;
     ctx.beginPath();
     ctx.arc(point.x, point.y, 3.8, 0, Math.PI * 2);
     ctx.fillStyle = "#ffffff";
     ctx.fill();
-    ctx.strokeStyle = "#176b63";
+    ctx.strokeStyle = chartDeltaColor(delta);
     ctx.lineWidth = 2;
     ctx.stroke();
   });
@@ -1006,6 +1010,12 @@ function deltaClass(value) {
 function toneClass(value) {
   if (value === null || Number.isNaN(value) || value === 0) return "";
   return value > 0 ? "tone-positive" : "tone-negative";
+}
+
+function chartDeltaColor(value) {
+  if (value > 0) return "#c0362c";
+  if (value < 0) return "#127a48";
+  return "#66747b";
 }
 
 function toDateValue(date) {
