@@ -207,6 +207,21 @@ h2 {
   overflow-wrap: anywhere;
 }
 
+.delta-amount,
+.delta-percent {
+  display: block;
+}
+
+.delta-percent {
+  margin-top: 3px;
+  font-size: 0.72em;
+  line-height: 1.2;
+}
+
+.day-change .delta-percent {
+  font-size: 11px;
+}
+
 .is-positive {
   color: var(--red);
 }
@@ -216,6 +231,18 @@ h2 {
 }
 
 .is-neutral {
+  color: var(--muted);
+}
+
+.day-inspector span.is-positive {
+  color: var(--red);
+}
+
+.day-inspector span.is-negative {
+  color: var(--green);
+}
+
+.day-inspector span.is-neutral {
   color: var(--muted);
 }
 

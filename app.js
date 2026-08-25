@@ -630,7 +630,7 @@ function renderSummary() {
   const deltaPercent = getDailyDeltaPercent(latest.date);
   els.latestTotal.textContent = formatMoney(latest.total);
   els.latestDate.textContent = latest.date;
-  els.latestDelta.textContent = formatDeltaWithPercent(delta, deltaPercent);
+  els.latestDelta.innerHTML = formatDeltaWithPercent(delta, deltaPercent);
   els.latestDelta.className = `metric-value ${deltaClass(delta)}`;
   els.latestDeltaNote.textContent = delta === null ? "没有前一日数据" : "按前一日总净值计算";
 }
@@ -655,7 +655,7 @@ function renderDayView() {
   }
 
   els.dayTotal.textContent = formatMoney(record.total);
-  els.dayDelta.textContent = `较前一日：${formatDeltaWithPercent(delta, deltaPercent)}`;
+  els.dayDelta.innerHTML = formatDeltaWithPercent(delta, deltaPercent, "较前一日：");
   els.dayDelta.className = `metric-subline ${deltaClass(delta)}`;
   els.dayBreakdown.innerHTML = FIELD_DEFS.map(
     (field) => `
@@ -731,7 +731,7 @@ function renderDayInspector() {
   els.dayInspector.innerHTML = `
     <span>${record.date}</span>
     <strong>${formatMoney(record.total)}</strong>
-    <span class="${deltaClass(delta)}">较前一日：${formatDeltaWithPercent(delta, deltaPercent)}</span>
+    <span class="${deltaClass(delta)}">${formatDeltaWithPercent(delta, deltaPercent, "较前一日：")}</span>
     <div class="breakdown-grid" style="margin-top: 12px;">
       ${FIELD_DEFS.map(
         (field) => `
@@ -1032,9 +1032,9 @@ function formatPercent(value) {
   }).format(normalized)}%`;
 }
 
-function formatDeltaWithPercent(delta, percent) {
+function formatDeltaWithPercent(delta, percent, label = "") {
   if (delta === null || Number.isNaN(delta)) return "--";
-  return `${formatDelta(delta)} (${formatPercent(percent)})`;
+  return `<span class="delta-amount">${label}${formatDelta(delta)}</span><span class="delta-percent">${formatPercent(percent)}</span>`;
 }
 
 function calculatePercent(delta, base) {
