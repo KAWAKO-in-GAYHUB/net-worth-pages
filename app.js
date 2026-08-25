@@ -627,9 +627,10 @@ function renderSummary() {
   }
 
   const delta = getDailyDelta(latest.date);
+  const deltaPercent = getDailyDeltaPercent(latest.date);
   els.latestTotal.textContent = formatMoney(latest.total);
   els.latestDate.textContent = latest.date;
-  els.latestDelta.textContent = formatDelta(delta);
+  els.latestDelta.textContent = formatDeltaWithPercent(delta, deltaPercent);
   els.latestDelta.className = `metric-value ${deltaClass(delta)}`;
   els.latestDeltaNote.textContent = delta === null ? "没有前一日数据" : "按前一日总净值计算";
 }
@@ -644,6 +645,7 @@ function renderViews() {
 function renderDayView() {
   const record = getRecord(state.selectedDate);
   const delta = getDailyDelta(state.selectedDate);
+  const deltaPercent = getDailyDeltaPercent(state.selectedDate);
   if (!record) {
     els.dayTotal.textContent = "--";
     els.dayDelta.textContent = "该日暂无数据";
@@ -653,7 +655,7 @@ function renderDayView() {
   }
 
   els.dayTotal.textContent = formatMoney(record.total);
-  els.dayDelta.textContent = `较前一日：${formatDelta(delta)}`;
+  els.dayDelta.textContent = `较前一日：${formatDeltaWithPercent(delta, deltaPercent)}`;
   els.dayDelta.className = `metric-subline ${deltaClass(delta)}`;
   els.dayBreakdown.innerHTML = FIELD_DEFS.map(
     (field) => `
@@ -672,6 +674,7 @@ function renderMonthView() {
   const monthRecords = getRecordsForMonth(state.selectedMonth);
   const monthLast = monthRecords.at(-1) || null;
   const monthDelta = getMonthlyDelta(state.selectedMonth);
+  const monthDeltaPercent = getMonthlyDeltaPercent(state.selectedMonth);
 
   els.monthSummary.innerHTML = `
     <div>
@@ -680,7 +683,7 @@ function renderMonthView() {
     </div>
     <div>
       <span class="metric-label">较前一月变化</span>
-      <strong class="metric-value ${deltaClass(monthDelta)}">${formatDelta(monthDelta)}</strong>
+      <strong class="metric-value ${deltaClass(monthDelta)}">${formatDeltaWithPercent(monthDelta, monthDeltaPercent)}</strong>
     </div>
   `;
 
@@ -692,13 +695,14 @@ function renderMonthView() {
     const date = `${state.selectedMonth}-${String(day).padStart(2, "0")}`;
     const record = getRecord(date);
     const delta = getDailyDelta(date);
+    const deltaPercent = getDailyDeltaPercent(date);
     const selected = state.selectedDate === date;
     cells.push(`
       <button type="button" class="calendar-day ${record ? "has-record" : ""} ${toneClass(delta)} ${selected ? "is-selected" : ""}" data-date="${date}">
         <span class="day-number">${day}</span>
         ${
           record
-            ? `<span><span class="day-change ${deltaClass(delta)}">${formatDelta(delta)}</span><span class="day-total">${formatCompact(record.total)}</span></span>`
+            ? `<span><span class="day-change ${deltaClass(delta)}">${formatDeltaWithPercent(delta, deltaPercent)}</span><span class="day-total">${formatCompact(record.total)}</span></span>`
             : `<span class="day-change is-neutral">无数据</span>`
         }
       </button>
@@ -723,10 +727,11 @@ function renderDayInspector() {
     return;
   }
   const delta = getDailyDelta(record.date);
+  const deltaPercent = getDailyDeltaPercent(record.date);
   els.dayInspector.innerHTML = `
     <span>${record.date}</span>
     <strong>${formatMoney(record.total)}</strong>
-    <span class="${deltaClass(delta)}">较前一日：${formatDelta(delta)}</span>
+    <span class="${deltaClass(delta)}">较前一日：${formatDeltaWithPercent(delta, deltaPercent)}</span>
     <div class="breakdown-grid" style="margin-top: 12px;">
       ${FIELD_DEFS.map(
         (field) => `
@@ -747,6 +752,7 @@ function renderYearView() {
     const records = getRecordsForMonth(month);
     const last = records.at(-1) || null;
     const delta = getMonthlyDelta(month);
+    const deltaPercent = getMonthlyDeltaPercent(month);
     return `
       <button type="button" class="month-card ${last ? "has-data" : ""} ${toneClass(delta)}" data-month="${month}">
         <div class="month-card-title">
@@ -754,7 +760,7 @@ function renderYearView() {
           <span>${records.length} 条</span>
         </div>
         <span>当月净值变化</span>
-        <strong class="${deltaClass(delta)}">${formatDelta(delta)}</strong>
+        <strong class="${deltaClass(delta)}">${formatDeltaWithPercent(delta, deltaPercent)}</strong>
         <span style="margin-top: 10px;">月末总净值：${last ? formatMoney(last.total) : "--"}</span>
       </button>
     `;
@@ -775,6 +781,7 @@ function renderAnnualView() {
       const last = records.at(-1) || null;
       const baseline = getAnnualBaseline(year);
       const delta = getAnnualDelta(year);
+      const deltaPercent = getAnnualDeltaPercent(year);
       return `
         <button type="button" class="annual-card ${last ? "has-data" : ""} ${toneClass(delta)}" data-year="${year}">
           <div class="annual-card-title">
@@ -782,7 +789,7 @@ function renderAnnualView() {
             <span>${records.length} 条</span>
           </div>
           <span>全年总收益</span>
-          <strong class="${deltaClass(delta)}">${formatDelta(delta)}</strong>
+          <strong class="${deltaClass(delta)}">${formatDeltaWithPercent(delta, deltaPercent)}</strong>
           <span style="margin-top: 10px;">年末总净值：${last ? formatMoney(last.total) : "--"}</span>
           <span>基准日期：${baseline ? baseline.date : first ? first.date : "--"}</span>
         </button>
@@ -802,7 +809,7 @@ function renderTable() {
   if (!filtered.length) {
     els.recordsTable.innerHTML = `
       <tr>
-        <td colspan="9">
+        <td colspan="10">
           <div class="empty-state">没有匹配的数据。</div>
         </td>
       </tr>
@@ -813,6 +820,7 @@ function renderTable() {
   els.recordsTable.innerHTML = filtered
     .map((record) => {
       const delta = getDailyDelta(record.date);
+      const deltaPercent = getDailyDeltaPercent(record.date);
       return `
         <tr>
           <td>${record.date}</td>
@@ -823,6 +831,7 @@ function renderTable() {
           <td>${formatMoney(record.fund)}</td>
           <td><strong>${formatMoney(record.total)}</strong></td>
           <td class="${deltaClass(delta)}">${formatDelta(delta)}</td>
+          <td class="${deltaClass(delta)}">${formatPercent(deltaPercent)}</td>
           <td>
             <div class="row-actions">
               <button type="button" class="ghost-button" data-edit="${record.date}" ${state.token ? "" : "disabled"}>编辑</button>
@@ -933,6 +942,11 @@ function getDailyDelta(date) {
   return record.total - previous.total;
 }
 
+function getDailyDeltaPercent(date) {
+  const previous = getRecord(addDays(date, -1));
+  return calculatePercent(getDailyDelta(date), previous ? previous.total : null);
+}
+
 function getRecordsForMonth(month) {
   return state.records.filter((record) => record.date.startsWith(month));
 }
@@ -942,6 +956,11 @@ function getMonthlyDelta(month) {
   const previous = getRecordsForMonth(addMonths(month, -1)).at(-1) || null;
   if (!current || !previous) return null;
   return current.total - previous.total;
+}
+
+function getMonthlyDeltaPercent(month) {
+  const previous = getRecordsForMonth(addMonths(month, -1)).at(-1) || null;
+  return calculatePercent(getMonthlyDelta(month), previous ? previous.total : null);
 }
 
 function getRecordsForYear(year) {
@@ -957,6 +976,11 @@ function getAnnualDelta(year) {
   const baseline = getAnnualBaseline(year);
   if (!current || !baseline) return null;
   return current.total - baseline.total;
+}
+
+function getAnnualDeltaPercent(year) {
+  const baseline = getAnnualBaseline(year);
+  return calculatePercent(getAnnualDelta(year), baseline ? baseline.total : null);
 }
 
 function getAnnualBaseline(year) {
@@ -996,6 +1020,26 @@ function formatDelta(value) {
   if (value === null || Number.isNaN(value)) return "--";
   const sign = value > 0 ? "+" : "";
   return `${sign}${formatMoney(value)}`;
+}
+
+function formatPercent(value) {
+  if (value === null || !Number.isFinite(value)) return "--";
+  const normalized = Math.abs(value) < 0.005 ? 0 : value;
+  const sign = normalized > 0 ? "+" : "";
+  return `${sign}${new Intl.NumberFormat("zh-CN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(normalized)}%`;
+}
+
+function formatDeltaWithPercent(delta, percent) {
+  if (delta === null || Number.isNaN(delta)) return "--";
+  return `${formatDelta(delta)} (${formatPercent(percent)})`;
+}
+
+function calculatePercent(delta, base) {
+  if (delta === null || !Number.isFinite(delta) || !Number.isFinite(base) || base === 0) return null;
+  return (delta / base) * 100;
 }
 
 function deltaClass(value) {
