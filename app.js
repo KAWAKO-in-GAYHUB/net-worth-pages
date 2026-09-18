@@ -28,6 +28,8 @@ const state = {
 };
 
 const els = {};
+let trendPointer = null;
+let trendPointerFrame = 0;
 
 document.addEventListener("DOMContentLoaded", init);
 window.addEventListener("resize", debounce(renderTrendChart, 120));
@@ -104,6 +106,15 @@ function cacheElements() {
 }
 
 function bindEvents() {
+  els.trendChart.addEventListener("pointermove", updateTrendPointer);
+  els.trendChart.addEventListener("pointerdown", updateTrendPointer);
+  els.trendChart.addEventListener("pointerleave", clearTrendPointer);
+  els.trendChart.addEventListener("pointercancel", clearTrendPointer);
+  els.trendChart.addEventListener("pointerup", (event) => {
+    if (event.pointerType !== "mouse") clearTrendPointer();
+  });
+  window.addEventListener("blur", clearTrendPointer);
+
   els.refreshData.addEventListener("click", loadLocalDataAndRender);
   els.adminToggle.addEventListener("click", toggleAdmin);
   els.loadGithub.addEventListener("click", loadFromGithub);
@@ -844,8 +855,26 @@ function renderTable() {
     .join("");
 }
 
+function updateTrendPointer(event) {
+  trendPointer = { x: event.clientX, y: event.clientY };
+  if (trendPointerFrame) return;
+  trendPointerFrame = requestAnimationFrame(() => {
+    trendPointerFrame = 0;
+    renderTrendChart();
+  });
+}
+
+function clearTrendPointer() {
+  if (!trendPointer && !trendPointerFrame) return;
+  trendPointer = null;
+  cancelAnimationFrame(trendPointerFrame);
+  trendPointerFrame = 0;
+  renderTrendChart();
+}
+
 function renderTrendChart() {
   const canvas = els.trendChart;
+  if (!canvas) return;
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
 
@@ -859,10 +888,21 @@ function renderTrendChart() {
 
   const records = state.records.slice(-30);
   els.chartCaption.textContent = records.length ? `最近 ${records.length} 条记录` : "暂无记录";
+  canvas.setAttribute("aria-label", "总净值趋势图");
 
-  const padding = { top: 18, right: 18, bottom: 28, left: 48 };
+  const totals = records.map((record) => record.total);
+  const min = records.length ? Math.min(...totals) : 0;
+  const max = records.length ? Math.max(...totals) : 0;
+  const flatPadding = min === max ? Math.max(Math.abs(min) * 0.001, 1) : 0;
+  const axisMin = min - flatPadding;
+  const axisMax = max + flatPadding;
+  const range = axisMax - axisMin;
+  ctx.font = "12px system-ui, sans-serif";
+  const labelWidth = Math.max(ctx.measureText(formatMoney(axisMin)).width, ctx.measureText(formatMoney(axisMax)).width);
+  const padding = { top: 18, right: 18, bottom: 28, left: Math.ceil(labelWidth) + 16 };
   const width = rect.width - padding.left - padding.right;
   const height = rect.height - padding.top - padding.bottom;
+  if (width <= 0 || height <= 0) return;
 
   ctx.strokeStyle = "#d9e0dc";
   ctx.lineWidth = 1;
@@ -875,19 +915,19 @@ function renderTrendChart() {
     ctx.lineTo(padding.left + width, y);
     ctx.stroke();
   }
+  ctx.beginPath();
+  ctx.moveTo(padding.left, padding.top);
+  ctx.lineTo(padding.left, padding.top + height);
+  ctx.stroke();
 
   if (!records.length) {
     ctx.fillText("暂无数据", padding.left, padding.top + height / 2);
     return;
   }
 
-  const totals = records.map((record) => record.total);
-  const min = Math.min(...totals);
-  const max = Math.max(...totals);
-  const range = max - min || 1;
   const points = records.map((record, index) => {
     const x = padding.left + (records.length === 1 ? width : (width / (records.length - 1)) * index);
-    const y = padding.top + height - ((record.total - min) / range) * height;
+    const y = padding.top + height - ((record.total - axisMin) / range) * height;
     return { x, y, record };
   });
 
@@ -910,9 +950,43 @@ function renderTrendChart() {
     ctx.stroke();
   });
 
+  const x = trendPointer ? trendPointer.x - rect.left : -1;
+  const y = trendPointer ? trendPointer.y - rect.top : -1;
+  if (x >= padding.left && x <= padding.left + width && y >= padding.top && y <= padding.top + height) {
+    const index = Math.round(((x - padding.left) / width) * (records.length - 1));
+    const date = records[index].date;
+    const amount = formatMoney(axisMin + ((padding.top + height - y) / height) * range);
+
+    ctx.save();
+    ctx.strokeStyle = "#66747b";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, padding.top);
+    ctx.lineTo(x, padding.top + height);
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(padding.left + width, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const amountWidth = ctx.measureText(amount).width + 12;
+    const dateWidth = ctx.measureText(date).width + 12;
+    const dateX = Math.max(padding.left, Math.min(x - dateWidth / 2, rect.width - dateWidth));
+    ctx.fillStyle = "#243036";
+    ctx.fillRect(padding.left - amountWidth, y - 11, amountWidth, 22);
+    ctx.fillRect(dateX, padding.top + height + 4, dateWidth, 22);
+    ctx.fillStyle = "#ffffff";
+    ctx.textBaseline = "middle";
+    ctx.fillText(amount, padding.left - amountWidth + 6, y);
+    ctx.fillText(date, dateX + 6, padding.top + height + 15);
+    ctx.restore();
+    canvas.setAttribute("aria-label", `总净值趋势图，日期 ${date}，金额 ${amount}`);
+    return;
+  }
+
   ctx.fillStyle = "#66747b";
-  ctx.fillText(formatCompact(max), 4, padding.top + 4);
-  ctx.fillText(formatCompact(min), 4, padding.top + height);
+  ctx.fillText(formatCompact(axisMax), 4, padding.top + 4);
+  ctx.fillText(formatCompact(axisMin), 4, padding.top + height);
   ctx.fillText(records[0].date.slice(5), padding.left, rect.height - 8);
   ctx.textAlign = "right";
   ctx.fillText(records.at(-1).date.slice(5), padding.left + width, rect.height - 8);
