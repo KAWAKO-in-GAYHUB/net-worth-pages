@@ -14,7 +14,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="assets/favicon-clean-512.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon-clean.png" />
     <meta name="theme-color" content="#f6f7f3" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20261023" />
   </head>
   <body>
     <div class="app-shell">
@@ -24,6 +24,20 @@
           <h1>净值收益看板</h1>
         </div>
         <div class="header-actions">
+          <button type="button" class="ghost-button icon-button" id="privacyToggle" aria-label="隐藏净值和百分比" aria-pressed="false" title="隐藏净值和百分比">
+            <!-- Lucide v0.468.0, ISC license: assets/lucide-LICENSE.txt. -->
+            <svg class="eye-open" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <svg class="eye-closed" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="m15 18-.722-3.25" />
+              <path d="M2 8a10.645 10.645 0 0 0 20 0" />
+              <path d="m20 15-1.726-2.05" />
+              <path d="m4 15 1.726-2.05" />
+              <path d="m9 18 .722-3.25" />
+            </svg>
+          </button>
           <button type="button" class="ghost-button" id="refreshData">刷新数据</button>
           <button type="button" class="primary-button" id="adminToggle">管理模式</button>
         </div>
@@ -169,22 +183,27 @@
             <label>
               建设银行净值
               <input type="number" id="ccbValue" inputmode="decimal" step="0.01" min="0" />
+              <span class="privacy-field-mask is-hidden">****</span>
             </label>
             <label>
               工商银行净值
               <input type="number" id="icbcValue" inputmode="decimal" step="0.01" min="0" />
+              <span class="privacy-field-mask is-hidden">****</span>
             </label>
             <label>
               中国银行净值
               <input type="number" id="bocValue" inputmode="decimal" step="0.01" min="0" />
+              <span class="privacy-field-mask is-hidden">****</span>
             </label>
             <label>
               交通银行净值
               <input type="number" id="bocomValue" inputmode="decimal" step="0.01" min="0" />
+              <span class="privacy-field-mask is-hidden">****</span>
             </label>
             <label>
               基金净值
               <input type="number" id="fundValue" inputmode="decimal" step="0.01" min="0" />
+              <span class="privacy-field-mask is-hidden">****</span>
             </label>
 
             <div class="total-preview">
@@ -243,6 +262,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=20261023"></script>
   </body>
 </html>

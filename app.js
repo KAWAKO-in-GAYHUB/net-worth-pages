@@ -8,6 +8,8 @@ const FIELD_DEFS = [
 
 const MONTH_LABELS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
 const STORAGE_KEY = "netWorthTracker.repoSettings.v1";
+const PRIVACY_STORAGE_KEY = "netWorthTracker.privacy.v1";
+const PRIVACY_MASK = "****";
 
 const state = {
   records: [],
@@ -19,6 +21,7 @@ const state = {
   githubSha: null,
   dirty: false,
   adminVisible: false,
+  privacy: false,
   settings: {
     owner: "",
     repo: "",
@@ -37,6 +40,8 @@ window.addEventListener("resize", debounce(renderTrendChart, 120));
 async function init() {
   cacheElements();
   loadSettings();
+  loadPrivacy();
+  renderPrivacy();
   bindEvents();
   setControlValues();
   setFormEnabled(false);
@@ -47,6 +52,7 @@ async function init() {
 
 function cacheElements() {
   [
+    "privacyToggle",
     "refreshData",
     "adminToggle",
     "adminPanel",
@@ -106,6 +112,8 @@ function cacheElements() {
 }
 
 function bindEvents() {
+  els.privacyToggle.addEventListener("click", togglePrivacy);
+  els.trendChart.addEventListener("pointerenter", updateTrendPointer);
   els.trendChart.addEventListener("pointermove", updateTrendPointer);
   els.trendChart.addEventListener("pointerdown", updateTrendPointer);
   els.trendChart.addEventListener("pointerleave", clearTrendPointer);
@@ -114,6 +122,7 @@ function bindEvents() {
     if (event.pointerType !== "mouse") clearTrendPointer();
   });
   window.addEventListener("blur", clearTrendPointer);
+  window.addEventListener("scroll", clearTrendPointer, { passive: true });
 
   els.refreshData.addEventListener("click", loadLocalDataAndRender);
   els.adminToggle.addEventListener("click", toggleAdmin);
@@ -319,6 +328,39 @@ function saveSettingsFromInputs() {
   renderStatus();
 }
 
+function loadPrivacy() {
+  try {
+    state.privacy = localStorage.getItem(PRIVACY_STORAGE_KEY) === "true";
+  } catch (error) {
+    state.privacy = false;
+  }
+}
+
+function togglePrivacy() {
+  state.privacy = !state.privacy;
+  try {
+    localStorage.setItem(PRIVACY_STORAGE_KEY, String(state.privacy));
+  } catch (error) {
+    // Keep the toggle usable when browser storage is unavailable.
+  }
+  render();
+}
+
+function renderPrivacy() {
+  const label = state.privacy ? "显示净值和百分比" : "隐藏净值和百分比";
+  els.privacyToggle.setAttribute("aria-pressed", String(state.privacy));
+  els.privacyToggle.setAttribute("aria-label", label);
+  els.privacyToggle.title = label;
+  FIELD_DEFS.forEach((field) => {
+    els[field.input].classList.toggle("is-hidden", state.privacy);
+  });
+  els.recordForm.querySelectorAll(".privacy-field-mask").forEach((mask) => {
+    mask.classList.toggle("is-hidden", !state.privacy);
+  });
+  setFormEnabled(Boolean(state.token));
+  updateFormTotal();
+}
+
 function toggleAdmin() {
   state.adminVisible = !state.adminVisible;
   els.adminPanel.classList.toggle("is-hidden", !state.adminVisible);
@@ -335,6 +377,7 @@ function clearToken() {
 }
 
 function setFormEnabled(enabled) {
+  enabled = enabled && !state.privacy;
   FIELD_DEFS.forEach((field) => {
     els[field.input].disabled = !enabled;
   });
@@ -576,12 +619,13 @@ function updateFormTotal() {
   FIELD_DEFS.forEach((field) => {
     record[field.key] = toNumber(els[field.input].value);
   });
-  els.formTotal.textContent = formatMoney(calculateTotal(record));
+  els.formTotal.textContent = formatNetWorth(calculateTotal(record));
 }
 
 function render() {
   state.records = normalizeRecords(state.records);
   syncControlsFromState();
+  renderPrivacy();
   renderStatus();
   renderSummary();
   renderViews();
@@ -609,8 +653,8 @@ function syncControlsFromState() {
 
 function renderStatus() {
   const unlocked = Boolean(state.token);
-  els.editStatus.textContent = unlocked ? "可编辑" : "只读";
-  els.editStatus.className = `status-pill ${unlocked ? "is-ready" : ""}`;
+  els.editStatus.textContent = state.privacy ? "已隐藏" : unlocked ? "可编辑" : "只读";
+  els.editStatus.className = `status-pill ${unlocked && !state.privacy ? "is-ready" : ""}`;
   if (state.dirty) {
     setSyncStatus("有未提交更改", "is-dirty");
   } else if (unlocked) {
@@ -639,7 +683,7 @@ function renderSummary() {
 
   const delta = getDailyDelta(latest.date);
   const deltaPercent = getDailyDeltaPercent(latest.date);
-  els.latestTotal.textContent = formatMoney(latest.total);
+  els.latestTotal.textContent = formatNetWorth(latest.total);
   els.latestDate.textContent = latest.date;
   els.latestDelta.innerHTML = formatDeltaWithPercent(delta, deltaPercent);
   els.latestDelta.className = `metric-value ${deltaClass(delta)}`;
@@ -665,14 +709,14 @@ function renderDayView() {
     return;
   }
 
-  els.dayTotal.textContent = formatMoney(record.total);
+  els.dayTotal.textContent = formatNetWorth(record.total);
   els.dayDelta.innerHTML = formatDeltaWithPercent(delta, deltaPercent, "较前一日：");
   els.dayDelta.className = `metric-subline ${deltaClass(delta)}`;
   els.dayBreakdown.innerHTML = FIELD_DEFS.map(
     (field) => `
       <article class="breakdown-item">
         <span>${field.label}</span>
-        <strong>${formatMoney(record[field.key])}</strong>
+        <strong>${formatNetWorth(record[field.key])}</strong>
       </article>
     `,
   ).join("");
@@ -690,7 +734,7 @@ function renderMonthView() {
   els.monthSummary.innerHTML = `
     <div>
       <span class="metric-label">本月月末总净值</span>
-      <strong class="metric-value">${monthLast ? formatMoney(monthLast.total) : "--"}</strong>
+      <strong class="metric-value">${monthLast ? formatNetWorth(monthLast.total) : "--"}</strong>
     </div>
     <div>
       <span class="metric-label">较前一月变化</span>
@@ -713,7 +757,7 @@ function renderMonthView() {
         <span class="day-number">${day}</span>
         ${
           record
-            ? `<span><span class="day-change ${deltaClass(delta)}">${formatDeltaWithPercent(delta, deltaPercent)}</span><span class="day-total">${formatCompact(record.total)}</span></span>`
+            ? `<span><span class="day-change ${deltaClass(delta)}">${formatDeltaWithPercent(delta, deltaPercent)}</span><span class="day-total">${formatNetWorth(record.total, true)}</span></span>`
             : `<span class="day-change is-neutral">无数据</span>`
         }
       </button>
@@ -741,14 +785,14 @@ function renderDayInspector() {
   const deltaPercent = getDailyDeltaPercent(record.date);
   els.dayInspector.innerHTML = `
     <span>${record.date}</span>
-    <strong>${formatMoney(record.total)}</strong>
+    <strong>${formatNetWorth(record.total)}</strong>
     <span class="${deltaClass(delta)}">${formatDeltaWithPercent(delta, deltaPercent, "较前一日：")}</span>
     <div class="breakdown-grid" style="margin-top: 12px;">
       ${FIELD_DEFS.map(
         (field) => `
           <article class="breakdown-item">
             <span>${field.label}</span>
-            <strong>${formatMoney(record[field.key])}</strong>
+            <strong>${formatNetWorth(record[field.key])}</strong>
           </article>
         `,
       ).join("")}
@@ -772,7 +816,7 @@ function renderYearView() {
         </div>
         <span>当月净值变化</span>
         <strong class="${deltaClass(delta)}">${formatDeltaWithPercent(delta, deltaPercent)}</strong>
-        <span style="margin-top: 10px;">月末总净值：${last ? formatMoney(last.total) : "--"}</span>
+        <span style="margin-top: 10px;">月末总净值：${last ? formatNetWorth(last.total) : "--"}</span>
       </button>
     `;
   }).join("");
@@ -801,7 +845,7 @@ function renderAnnualView() {
           </div>
           <span>全年总收益</span>
           <strong class="${deltaClass(delta)}">${formatDeltaWithPercent(delta, deltaPercent)}</strong>
-          <span style="margin-top: 10px;">年末总净值：${last ? formatMoney(last.total) : "--"}</span>
+          <span style="margin-top: 10px;">年末总净值：${last ? formatNetWorth(last.total) : "--"}</span>
           <span>基准日期：${baseline ? baseline.date : first ? first.date : "--"}</span>
         </button>
       `;
@@ -835,18 +879,18 @@ function renderTable() {
       return `
         <tr>
           <td>${record.date}</td>
-          <td>${formatMoney(record.ccb)}</td>
-          <td>${formatMoney(record.icbc)}</td>
-          <td>${formatMoney(record.boc)}</td>
-          <td>${formatMoney(record.bocom)}</td>
-          <td>${formatMoney(record.fund)}</td>
-          <td><strong>${formatMoney(record.total)}</strong></td>
+          <td>${formatNetWorth(record.ccb)}</td>
+          <td>${formatNetWorth(record.icbc)}</td>
+          <td>${formatNetWorth(record.boc)}</td>
+          <td>${formatNetWorth(record.bocom)}</td>
+          <td>${formatNetWorth(record.fund)}</td>
+          <td><strong>${formatNetWorth(record.total)}</strong></td>
           <td class="${deltaClass(delta)}">${formatDelta(delta)}</td>
           <td class="${deltaClass(delta)}">${formatPercent(deltaPercent)}</td>
           <td>
             <div class="row-actions">
-              <button type="button" class="ghost-button" data-edit="${record.date}" ${state.token ? "" : "disabled"}>编辑</button>
-              <button type="button" class="danger-button" data-delete="${record.date}" ${state.token ? "" : "disabled"}>删除</button>
+              <button type="button" class="ghost-button" data-edit="${record.date}" ${state.token && !state.privacy ? "" : "disabled"}>编辑</button>
+              <button type="button" class="danger-button" data-delete="${record.date}" ${state.token && !state.privacy ? "" : "disabled"}>删除</button>
             </div>
           </td>
         </tr>
@@ -955,7 +999,7 @@ function renderTrendChart() {
   if (x >= padding.left && x <= padding.left + width && y >= padding.top && y <= padding.top + height) {
     const index = Math.round(((x - padding.left) / width) * (records.length - 1));
     const date = records[index].date;
-    const amount = formatMoney(axisMin + ((padding.top + height - y) / height) * range);
+    const amount = formatNetWorth(axisMin + ((padding.top + height - y) / height) * range);
 
     ctx.save();
     ctx.strokeStyle = "#66747b";
@@ -985,8 +1029,8 @@ function renderTrendChart() {
   }
 
   ctx.fillStyle = "#66747b";
-  ctx.fillText(formatCompact(axisMax), 4, padding.top + 4);
-  ctx.fillText(formatCompact(axisMin), 4, padding.top + height);
+  ctx.fillText(formatNetWorth(axisMax, true), 4, padding.top + 4);
+  ctx.fillText(formatNetWorth(axisMin, true), 4, padding.top + height);
   ctx.fillText(records[0].date.slice(5), padding.left, rect.height - 8);
   ctx.textAlign = "right";
   ctx.fillText(records.at(-1).date.slice(5), padding.left + width, rect.height - 8);
@@ -1076,6 +1120,11 @@ function trimNumber(value) {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
 }
 
+function formatNetWorth(value, compact = false) {
+  if (state.privacy) return PRIVACY_MASK;
+  return compact ? formatCompact(value) : formatMoney(value);
+}
+
 function formatMoney(value) {
   return new Intl.NumberFormat("zh-CN", {
     minimumFractionDigits: 2,
@@ -1098,6 +1147,7 @@ function formatDelta(value) {
 
 function formatPercent(value) {
   if (value === null || !Number.isFinite(value)) return "--";
+  if (state.privacy) return PRIVACY_MASK;
   const normalized = Math.abs(value) < 0.005 ? 0 : value;
   const sign = normalized > 0 ? "+" : "";
   return `${sign}${new Intl.NumberFormat("zh-CN", {

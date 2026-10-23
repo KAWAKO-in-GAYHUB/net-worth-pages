@@ -134,6 +134,45 @@ h2 {
   border-color: var(--line);
 }
 
+.header-actions .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  padding: 9px;
+}
+
+#privacyToggle[aria-pressed="false"] .eye-closed,
+#privacyToggle[aria-pressed="true"] .eye-open {
+  display: none;
+}
+
+#privacyToggle[aria-pressed="true"] {
+  color: var(--accent-strong);
+  border-color: var(--accent);
+  background: var(--surface-soft);
+}
+
+#privacyToggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.privacy-field-mask {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--surface-soft);
+  font-size: 16px;
+  font-weight: 400;
+}
+
 .ghost-button:hover:not(:disabled),
 .segmented-control button:hover:not(:disabled) {
   border-color: #9fb2aa;
@@ -370,7 +409,8 @@ input:focus {
   background: transparent;
 }
 
-.segmented-control button.is-active {
+.segmented-control button.is-active,
+.segmented-control button.is-active:hover {
   color: #fff;
   background: var(--text);
 }
@@ -712,11 +752,14 @@ tr:last-child td {
     width: 100%;
   }
 
-  .header-actions button,
   .date-controls label,
   .filters label,
   .filters button {
     flex: 1 1 100%;
+  }
+
+  .header-actions button {
+    flex: 1 1 auto;
   }
 
   .admin-grid,
@@ -733,6 +776,12 @@ tr:last-child td {
 
   .segmented-control {
     width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .segmented-control button {
+    padding-inline: 4px;
+    font-size: 14px;
   }
 
   .calendar-weekdays,
