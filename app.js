@@ -677,17 +677,16 @@ function renderSummary() {
     els.latestDate.textContent = "暂无数据";
     els.latestDelta.textContent = "--";
     els.latestDelta.className = "metric-value is-neutral";
-    els.latestDeltaNote.textContent = "需要连续两日数据";
+    els.latestDeltaNote.textContent = "暂无可比较记录";
     return;
   }
 
-  const delta = getDailyDelta(latest.date);
-  const deltaPercent = getDailyDeltaPercent(latest.date);
+  const { previousDate, delta, deltaPercent } = getDailyChange(latest);
   els.latestTotal.textContent = formatNetWorth(latest.total);
   els.latestDate.textContent = latest.date;
   els.latestDelta.innerHTML = formatDeltaWithPercent(delta, deltaPercent);
   els.latestDelta.className = `metric-value ${deltaClass(delta)}`;
-  els.latestDeltaNote.textContent = delta === null ? "没有前一日数据" : "按前一日总净值计算";
+  els.latestDeltaNote.textContent = previousDate ? `对比日期：${previousDate}` : "暂无更早记录";
 }
 
 function renderViews() {
@@ -699,8 +698,6 @@ function renderViews() {
 
 function renderDayView() {
   const record = getRecord(state.selectedDate);
-  const delta = getDailyDelta(state.selectedDate);
-  const deltaPercent = getDailyDeltaPercent(state.selectedDate);
   if (!record) {
     els.dayTotal.textContent = "--";
     els.dayDelta.textContent = "该日暂无数据";
@@ -709,8 +706,9 @@ function renderDayView() {
     return;
   }
 
+  const { previousDate, delta, deltaPercent } = getDailyChange(record);
   els.dayTotal.textContent = formatNetWorth(record.total);
-  els.dayDelta.innerHTML = formatDeltaWithPercent(delta, deltaPercent, "较前一日：");
+  els.dayDelta.innerHTML = formatDeltaWithPercent(delta, deltaPercent, `较 ${previousDate}：`);
   els.dayDelta.className = `metric-subline ${deltaClass(delta)}`;
   els.dayBreakdown.innerHTML = FIELD_DEFS.map(
     (field) => `
@@ -749,11 +747,10 @@ function renderMonthView() {
   for (let day = 1; day <= daysInMonth; day += 1) {
     const date = `${state.selectedMonth}-${String(day).padStart(2, "0")}`;
     const record = getRecord(date);
-    const delta = getDailyDelta(date);
-    const deltaPercent = getDailyDeltaPercent(date);
+    const { previousDate, delta, deltaPercent } = getDailyChange(record);
     const selected = state.selectedDate === date;
     cells.push(`
-      <button type="button" class="calendar-day ${record ? "has-record" : ""} ${toneClass(delta)} ${selected ? "is-selected" : ""}" data-date="${date}">
+      <button type="button" class="calendar-day ${record ? "has-record" : ""} ${toneClass(delta)} ${selected ? "is-selected" : ""}" data-date="${date}" ${previousDate ? `title="对比日期：${previousDate}"` : ""}>
         <span class="day-number">${day}</span>
         ${
           record
@@ -781,12 +778,11 @@ function renderDayInspector() {
     `;
     return;
   }
-  const delta = getDailyDelta(record.date);
-  const deltaPercent = getDailyDeltaPercent(record.date);
+  const { previousDate, delta, deltaPercent } = getDailyChange(record);
   els.dayInspector.innerHTML = `
     <span>${record.date}</span>
     <strong>${formatNetWorth(record.total)}</strong>
-    <span class="${deltaClass(delta)}">${formatDeltaWithPercent(delta, deltaPercent, "较前一日：")}</span>
+    <span class="${deltaClass(delta)}">${formatDeltaWithPercent(delta, deltaPercent, `较 ${previousDate}：`)}</span>
     <div class="breakdown-grid" style="margin-top: 12px;">
       ${FIELD_DEFS.map(
         (field) => `
@@ -874,8 +870,7 @@ function renderTable() {
 
   els.recordsTable.innerHTML = filtered
     .map((record) => {
-      const delta = getDailyDelta(record.date);
-      const deltaPercent = getDailyDeltaPercent(record.date);
+      const { previousDate, delta, deltaPercent } = getDailyChange(record);
       return `
         <tr>
           <td>${record.date}</td>
@@ -885,7 +880,7 @@ function renderTable() {
           <td>${formatNetWorth(record.bocom)}</td>
           <td>${formatNetWorth(record.fund)}</td>
           <td><strong>${formatNetWorth(record.total)}</strong></td>
-          <td class="${deltaClass(delta)}">${formatDelta(delta)}</td>
+          <td class="${deltaClass(delta)}" ${previousDate ? `title="对比日期：${previousDate}"` : ""}>${formatDelta(delta)}</td>
           <td class="${deltaClass(delta)}">${formatPercent(deltaPercent)}</td>
           <td>
             <div class="row-actions">
@@ -1053,16 +1048,12 @@ function getLatestRecord() {
   return state.records.at(-1) || null;
 }
 
-function getDailyDelta(date) {
-  const record = getRecord(date);
-  const previous = getRecord(addDays(date, -1));
-  if (!record || !previous) return null;
-  return record.total - previous.total;
-}
-
-function getDailyDeltaPercent(date) {
-  const previous = getRecord(addDays(date, -1));
-  return calculatePercent(getDailyDelta(date), previous ? previous.total : null);
+function getDailyChange(record) {
+  // normalizeRecords keeps the full history in ascending date order.
+  const previous = record && state.records.findLast((item) => item.date < record.date);
+  if (!previous) return { previousDate: null, delta: null, deltaPercent: null };
+  const delta = record.total - previous.total;
+  return { previousDate: previous.date, delta, deltaPercent: calculatePercent(delta, previous.total) };
 }
 
 function getRecordsForMonth(month) {
@@ -1185,13 +1176,6 @@ function toDateValue(date) {
 
 function isValidDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00`).getTime());
-}
-
-function addDays(dateValue, days) {
-  if (!isValidDate(dateValue)) return dateValue;
-  const date = new Date(`${dateValue}T00:00:00`);
-  date.setDate(date.getDate() + days);
-  return toDateValue(date);
 }
 
 function addMonths(monthValue, months) {
